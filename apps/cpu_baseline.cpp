@@ -1,4 +1,7 @@
 #include <iostream>
+#include <vector>
+#include <fstream>
+#include <iomanip>
 #include <chrono>
 #include "hnswlib.h"
 #include "data_loader.h"
@@ -7,17 +10,17 @@ int main() {
     size_t n, dim;
     std::string base_path = "data/sift_base.fvecs";
 
-    std::cout << " Loading sift in memory...." << std::endl;
+    std::cout << "Loading sift in memory...." << std::endl;
     auto data = load_fvecs(base_path, n, dim);
     std::cout << "Loaded " << n << " vectors." << std::endl;
 
-    // parameters for hnsw
+    // Parameters for hnsw
     int M = 16; // max number of outgoing connections for each node
     int ef_construction = 200; // size of the candidate list during the construction
 
     hnswlib::L2Space space(dim);
 
-    // initialize the algo
+    // Initialize the algo
     hnswlib::HierarchicalNSW<float>* alg_hnsw = new hnswlib::HierarchicalNSW<float>(
         &space,
         n,
@@ -28,7 +31,7 @@ int main() {
     std:: cout << "Starting build....." << std::endl;
     auto start = std::chrono::high_resolution_clock::now();
 
-    // add the points
+    // Add the points
     #pragma omp parallel for
     for (int i = 0; i < n; i++)
     {
