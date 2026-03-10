@@ -6,7 +6,7 @@
 
 int main() {
     int dim = 128;       
-    int num_pairs = 1000000; 
+    int num_pairs = 2000000; 
 
     // host data
     std::vector<float> h_queries(num_pairs * dim, 1.0f); 
@@ -41,10 +41,6 @@ int main() {
     // gpu to cpu copying
     cudaMemcpy(h_results.data(), d_results, num_pairs * sizeof(float), cudaMemcpyDeviceToHost);
 
-    // just to check
-    std::cout << "GPU Result [0]: " << h_results[0] << " (Expected: 128.0)" << std::endl;
-    std::cout << "GPU Result [99999]: " << h_results[99999] << " (Expected: 128.0)" << std::endl;
-    
     double seconds = duration.count() / 1000000.0;
     std::cout << "GPU results ---" << std::endl;
     std::cout << "Time: " << seconds << " seconds" << std::endl;
