@@ -23,13 +23,13 @@ add_library(hnsw_core
 )
 target_link_libraries(hnsw_core PUBLIC OpenMP::OpenMP_CXX)
 
-# the hybrid test
+# build hybrid version
 add_executable(hybrid_main apps/hybrid_main.cpp)
 target_link_libraries(hybrid_main PRIVATE hnsw_core)
 
-# # build cpu baseline
-# add_executable(cpu_baseline apps/cpu_baseline.cpp)
-# target_link_libraries(cpu_baseline PRIVATE hnsw_core)
+# build cpu baseline
+add_executable(cpu_baseline apps/cpu_baseline.cpp)
+target_link_libraries(cpu_baseline PRIVATE hnsw_core)
 
 # # build gpu test for now
 # add_executable(test_gpu apps/test_gpu)

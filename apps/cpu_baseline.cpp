@@ -14,25 +14,20 @@ int main() {
     auto data = load_fvecs(base_path, n, dim);
     std::cout << "Loaded " << n << " vectors." << std::endl;
 
-    // Parameters for hnsw
-    int M = 16; // max number of outgoing connections for each node
-    int ef_construction = 200; // size of the candidate list during the construction
-
     hnswlib::L2Space space(dim);
 
     // Initialize the algo
     hnswlib::HierarchicalNSW<float>* alg_hnsw = new hnswlib::HierarchicalNSW<float>(
         &space,
         n,
-        M,
-        ef_construction
+        16,
+        200
     );
 
-    std:: cout << "Starting build....." << std::endl;
+    std:: cout << "Starting Baseline CPU build....." << std::endl;
     auto start = std::chrono::high_resolution_clock::now();
 
     // Add the points
-    #pragma omp parallel for
     for (int i = 0; i < n; i++)
     {
         alg_hnsw->addPoint(data.data() + i * dim, i);
@@ -41,12 +36,13 @@ int main() {
         }
     }
 
-    auto stop = std::chrono::high_resolution_clock::now();
-    auto duration = std::chrono::duration_cast<std::chrono::seconds>(stop - start);
-    
-    std::cout << "-------The CPU Baseline Results------" << std::endl;
-    std::cout << "Total time: " << duration.count() << " seconds" << std::endl;
-    std::cout << "Throughput: " << n / duration.count() << " vectors/sec" << std::endl;
+    auto end = std::chrono::high_resolution_clock::now();
+    std::chrono::duration<double> diff = end - start; 
+
+    std::cout << "Baseline build time: " << diff.count() << "s" << std::endl;
+    std::cout << "Baseline Throughput: " << n / diff.count() << " vectors/sec" << std::endl;
+
+    alg_hnsw->saveIndex("sift_baseline_index.bin");
 
     // cleaning
     delete alg_hnsw;

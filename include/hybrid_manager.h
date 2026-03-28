@@ -28,8 +28,10 @@ public:
     void queueQuery(const float* query_vector, const std::vector<int>& candidate_ids);
     void executeBatch();
 
+    bool isEmpty() const { return current_batch_count == 0; }
     bool isFull() const { return current_batch_count >= max_batch_size; }
     std::vector<float> getResultsForQuery(int batch_index);
+    std::vector<int> getIdsForQuery(int batch_index);
     int getCurrentBatchCount() const { return current_batch_count; }
 
 };

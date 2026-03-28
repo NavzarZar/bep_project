@@ -29,25 +29,78 @@ int main() {
     HybridBatchManager gpu_manager(dim, batch_size, ef_construction, n);
     gpu_manager.uploadDatasetMirror(data);
 
-    std::cout << "Running the test batch..." << std::endl;
+    // build the first 10k on cpu to create a decent graph
+    int seed_size = 10000;
+    std::cout << "Building seed graph (CPU)..." << std::endl;
+    for (int i = 0; i < seed_size; i++) {
+        alg_hnsw->addPoint(data.data() + i * dim, i);
+    }
 
-    // mock input vectors
-    for (int i = 0; i < n; i++)
+    std::cout << "Running hybrid insertions..." << std::endl;
+    auto start_time = std::chrono::high_resolution_clock::now();
+
+    for (int i = seed_size; i < n; i++)
     {
-        std::cout << "Input: " << i << std::endl;
-        alg_hnsw->addPointHybridBatch(data.data() + i * dim, i,  &gpu_manager);
+        // 
+        alg_hnsw->addPointHybridBatch(data.data() + i * dim, i, &gpu_manager);
 
         if (gpu_manager.isFull()) {
-            std::cout << "Batch is full now, starting gpu work" << std::endl;
+            std::cout << "\n[Main] Batch full at i=" << i << ". Executing GPU..." << std::endl;
+            // gpu math
             gpu_manager.executeBatch();
+            std::cout << "[Main] GPU Finished. Starting Linking..." << std::endl;
 
-            // check results of first query just to check
-            std::vector<float> res = gpu_manager.getResultsForQuery(0);
-            std::cout << "It worked! Distance to candidate 0: " << res[0] << std::endl;
+            int batch_start_idx = i - batch_size + 1;
 
-            break;
-        } 
+            for (int b = 0; b < batch_size; b++)
+            {
+                int vector_id = batch_start_idx + b;
+
+                // get the data from manager
+                std::vector<float> dists = gpu_manager.getResultsForQuery(b);
+                std::vector<int> ids = gpu_manager.getIdsForQuery(b);
+
+                // call linking
+                if (b % 2000 == 0) std::cout << "[Main] Linking element " << b << " of batch" << std::endl;
+                alg_hnsw->linkBatchElement(vector_id, ids, dists);
+            }
+            std::cout << "[Main] Batch link complete.\n" << std::endl;
+
+            if (i % 50000 == 0 || i == n - 1) {
+                std::cout << "Processed " << i << " / " << n << " vectors..." << std::endl;
+            }
+
+        }
     }
+
+
+    if (!gpu_manager.isEmpty()) {
+        int remaining = gpu_manager.getCurrentBatchCount();
+        int batch_start_idx = n - remaining;
+
+        std::cout << "Flushing final partial batch of " << remaining << "..." << std::endl;
+        gpu_manager.executeBatch();
+
+        for (int b = 0; b < remaining; b++)
+        {
+            int vector_id = batch_start_idx + b;
+            std::vector<float> dists = gpu_manager.getResultsForQuery(b);
+            std::vector<int> ids = gpu_manager.getIdsForQuery(b);
+            alg_hnsw->linkBatchElement(vector_id, ids, dists);
+        }
+        
+    }
+
+    auto end_time = std::chrono::high_resolution_clock::now();
+    std::chrono::duration<double> diff = end_time - start_time;
+    std::cout << "Build complete in " << diff.count() << " seconds." << std::endl;
+    std::cout << "Throughput: " << (n - seed_size) / diff.count() << " vectors/sec." << std::endl;
+    
+
+    // save the index, no need to rebuild for every test
+    std::string index_path = "sift_hybrid_index.bin";
+    alg_hnsw->saveIndex(index_path);
+    std::cout << "Index saved to " << index_path << std::endl;
 
     delete alg_hnsw;
     return 0;

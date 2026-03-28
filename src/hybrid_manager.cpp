@@ -56,3 +56,11 @@ std::vector<float> HybridBatchManager::getResultsForQuery(int batch_index) {
     std::memcpy(results.data(), &h_distances_out[batch_index* candidates_per_query], candidates_per_query * sizeof(float));
     return results;
 }
+
+std::vector<int> HybridBatchManager::getIdsForQuery(int batch_index) {
+    std::vector<int> ids(candidates_per_query);
+
+    // h_candidate_ids should already contain the ids that we queued
+    std::memcpy(ids.data(), &h_candidate_ids[batch_index * candidates_per_query], candidates_per_query * sizeof(int));
+    return ids;
+}
