@@ -40,23 +40,41 @@ int main() {
     std::cout << "Running hybrid insertions..." << std::endl;
     auto start_time = std::chrono::high_resolution_clock::now();
 
-    for (int batch_start = seed_size; batch_start < n; batch_start += batch_size)
-    {
+    std::vector<int> gpu_batch_ids;
+    int current_id = seed_size;
 
-        // compute the exact size of this batch
-        int current_batch_size = std::min(batch_size, (int)(n - batch_start));
+    while (current_id < n) {
+        gpu_batch_ids.clear();
+
+        // fill the batch as the original algo does it
+        while (gpu_batch_ids.size() < batch_size && current_id < n) {
+            // use hnsw normal random layer generation
+            int expected_level = alg_hnsw->getRandomLevel(alg_hnsw->mult_);
+
+            if (expected_level > 0) {
+                alg_hnsw->addPoint(data.data() + current_id * dim, current_id);
+            } else {
+                alg_hnsw->preRegisterHybridNode(current_id, data.data() + current_id * dim);
+                gpu_batch_ids.push_back(current_id);
+            }
+            current_id++;
+        }
+
+        int current_batch_size = gpu_batch_ids.size();
+        if (current_batch_size == 0) break;
+
         gpu_manager.setCurrentBatchCount(current_batch_size);
 
-        if (batch_start % 50000 == 0) {
-            std::cout << "\nProcessed " << batch_start << " / " << n << " vectors..." << std::endl;
+
+        if (current_id % 50000 < batch_size) {
+            std::cout << "\nProcessed " << current_id << " / " << n << " vectors..." << std::endl;
         }
 
         // each cpu core should take a part of current_batch_size
         // lock-free
         #pragma omp parallel for
         for (int local_i = 0; local_i < current_batch_size; local_i++) {
-            int vector_id = batch_start + local_i;
-
+            int vector_id = gpu_batch_ids[local_i];
             alg_hnsw->addPointHybridBatch(data.data() + vector_id * dim, vector_id, &gpu_manager, local_i);
         }    
         
@@ -68,36 +86,19 @@ int main() {
         #pragma omp parallel for
         for (int local_i = 0; local_i < current_batch_size; local_i++)
         {
-            int vector_id = batch_start + local_i;
+            int vector_id = gpu_batch_ids[local_i];
             std::vector<float> dists = gpu_manager.getResultsForQuery(local_i);
             std::vector<int> ids = gpu_manager.getIdsForQuery(local_i);
 
             alg_hnsw->linkBatchElement(vector_id, ids, dists);
         }
-        
-        
-
     }
 
-
-    if (!gpu_manager.isEmpty()) {
-        int remaining = gpu_manager.getCurrentBatchCount();
-        int batch_start_idx = n - remaining;
-
-        std::cout << "Flushing final partial batch of " << remaining << "..." << std::endl;
-        gpu_manager.executeBatch();
-
-        for (int b = 0; b < remaining; b++)
-        {
-            int vector_id = batch_start_idx + b;
-            std::vector<float> dists = gpu_manager.getResultsForQuery(b);
-            std::vector<int> ids = gpu_manager.getIdsForQuery(b);
-            alg_hnsw->linkBatchElement(vector_id, ids, dists);
-        }
-        
-    }
 
     auto end_time = std::chrono::high_resolution_clock::now();
+
+    alg_hnsw->diagnosticAnalyzeTopology(seed_size, n);
+    
     std::chrono::duration<double> diff = end_time - start_time;
     std::cout << "Baseline build time: " << diff.count() << "s" << std::endl;
     std::cout << "Baseline Throughput: " << n / diff.count() << " vectors/sec" << std::endl;
