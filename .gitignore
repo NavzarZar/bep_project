@@ -52,4 +52,8 @@ build/
 # Data Files (Do not commit 1GB of SIFT data!)
 data/*.fvecs
 data/*.ivecs
+data/*.bvecs
 sift.tar.gz
+
+# Index files
+results/indices/*.bin

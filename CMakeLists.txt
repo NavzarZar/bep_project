@@ -31,6 +31,9 @@ target_link_libraries(hybrid_main PRIVATE hnsw_core)
 add_executable(cpu_baseline apps/cpu_baseline.cpp)
 target_link_libraries(cpu_baseline PRIVATE hnsw_core)
 
-# # build gpu test for now
-# add_executable(test_gpu apps/test_gpu)
-# target_link_libraries(test_gpu PRIVATE hnsw_core)
+# build recall checker
+add_executable(eval_recall apps/eval_recall.cpp)
+target_link_libraries(eval_recall PRIVATE hnsw_core)
+
+# Create the results directory structure in the source tree if it doesn't exist
+file(MAKE_DIRECTORY "${CMAKE_SOURCE_DIR}/results/indices")
