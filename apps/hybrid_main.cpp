@@ -34,6 +34,7 @@ int main() {
     // mock input vectors
     for (int i = 0; i < n; i++)
     {
+        std::cout << "Input: " << i << std::endl;
         alg_hnsw->addPointHybridBatch(data.data() + i * dim, i,  &gpu_manager);
 
         if (gpu_manager.isFull()) {
