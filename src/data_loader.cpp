@@ -34,3 +34,24 @@ std::vector<float> load_fvecs(const std::string& path, size_t& num_vectors, size
 
     return data;
 }
+
+std::vector<int> load_ivecs(const std::string& filename, size_t& n, size_t& k) {
+    std::ifstream input(filename, std::ios::binary);
+    if (!input.is_open()) throw std::runtime_error("Cannot open ivecs file");
+
+    int dim;
+    input.read((char*)&dim, 4);
+    k = dim;
+
+    input.seekg(0, std::ios::end);
+    size_t fileSize = input.tellg();
+    n = fileSize / (4 + k * 4);
+
+    std::vector<int> data(n * k);
+    input.seekg(0, std::ios::beg);
+    for (size_t i = 0; i < n; i++) {
+        input.ignore(4); // Skip the dimension header for each vector
+        input.read((char*)(data.data() + i * k), k * 4);
+    }
+    return data;
+}

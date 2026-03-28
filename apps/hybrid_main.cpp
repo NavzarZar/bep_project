@@ -20,17 +20,18 @@ int main() {
 
     int M = 16;
     int ef_construction = 200;
-    int batch_size = 10000;
+    int batch_size = 50000;
+    int candidates_per_query = 1000;
 
     hnswlib::L2Space space(dim);
     hnswlib::HierarchicalNSW<float>* alg_hnsw = new hnswlib::HierarchicalNSW<float>(&space, n, M, ef_construction);
 
     std::cout << "GPU Manager..." << std::endl;
-    HybridBatchManager gpu_manager(dim, batch_size, ef_construction, n);
+    HybridBatchManager gpu_manager(dim, batch_size, candidates_per_query, n);
     gpu_manager.uploadDatasetMirror(data);
 
     // build the first 10k on cpu to create a decent graph
-    int seed_size = 10000;
+    int seed_size = 100000;
     std::cout << "Building seed graph (CPU)..." << std::endl;
     for (int i = 0; i < seed_size; i++) {
         alg_hnsw->addPoint(data.data() + i * dim, i);
@@ -52,6 +53,8 @@ int main() {
 
             int batch_start_idx = i - batch_size + 1;
 
+
+            #pragma omp parallel for
             for (int b = 0; b < batch_size; b++)
             {
                 int vector_id = batch_start_idx + b;
@@ -93,13 +96,13 @@ int main() {
 
     auto end_time = std::chrono::high_resolution_clock::now();
     std::chrono::duration<double> diff = end_time - start_time;
-    std::cout << "Build complete in " << diff.count() << " seconds." << std::endl;
-    std::cout << "Throughput: " << (n - seed_size) / diff.count() << " vectors/sec." << std::endl;
+    std::cout << "Baseline build time: " << diff.count() << "s" << std::endl;
+    std::cout << "Baseline Throughput: " << n / diff.count() << " vectors/sec" << std::endl;
     
 
     // save the index, no need to rebuild for every test
-    std::string index_path = "sift_hybrid_index.bin";
-    alg_hnsw->saveIndex(index_path);
+    std::string index_path = "results/indices/";
+    alg_hnsw->saveIndex(index_path + "sift1m_hybrid_M" + std::to_string(M) + "_EF" + std::to_string(ef_construction) + ".bin");
     std::cout << "Index saved to " << index_path << std::endl;
 
     delete alg_hnsw;

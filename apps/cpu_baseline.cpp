@@ -16,12 +16,15 @@ int main() {
 
     hnswlib::L2Space space(dim);
 
+    int M = 16;
+    int ef_construction = 200;
+
     // Initialize the algo
     hnswlib::HierarchicalNSW<float>* alg_hnsw = new hnswlib::HierarchicalNSW<float>(
         &space,
         n,
-        16,
-        200
+        M,
+        ef_construction
     );
 
     std:: cout << "Starting Baseline CPU build....." << std::endl;
@@ -41,8 +44,10 @@ int main() {
 
     std::cout << "Baseline build time: " << diff.count() << "s" << std::endl;
     std::cout << "Baseline Throughput: " << n / diff.count() << " vectors/sec" << std::endl;
-
-    alg_hnsw->saveIndex("sift_baseline_index.bin");
+    
+    std::string index_path = "results/indices";
+    alg_hnsw->saveIndex("results/indices/sift1m_baseline_M" + std::to_string(M) + "_EF" + std::to_string(ef_construction) + ".bin");
+    std::cout << "Index saved to " << index_path << std::endl;
 
     // cleaning
     delete alg_hnsw;
