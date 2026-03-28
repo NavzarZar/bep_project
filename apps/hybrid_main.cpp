@@ -21,7 +21,7 @@ int main() {
     int M = 16;
     int ef_construction = 200;
     int batch_size = 50000;
-    int candidates_per_query = 1000;
+    int candidates_per_query = 3000;
 
     hnswlib::L2Space space(dim);
     hnswlib::HierarchicalNSW<float>* alg_hnsw = new hnswlib::HierarchicalNSW<float>(&space, n, M, ef_construction);
@@ -31,7 +31,7 @@ int main() {
     gpu_manager.uploadDatasetMirror(data);
 
     // build the first 10k on cpu to create a decent graph
-    int seed_size = 100000;
+    int seed_size = 200000;
     std::cout << "Building seed graph (CPU)..." << std::endl;
     for (int i = 0; i < seed_size; i++) {
         alg_hnsw->addPoint(data.data() + i * dim, i);
@@ -40,40 +40,43 @@ int main() {
     std::cout << "Running hybrid insertions..." << std::endl;
     auto start_time = std::chrono::high_resolution_clock::now();
 
-    for (int i = seed_size; i < n; i++)
+    for (int batch_start = seed_size; batch_start < n; batch_start += batch_size)
     {
-        // 
-        alg_hnsw->addPointHybridBatch(data.data() + i * dim, i, &gpu_manager);
 
-        if (gpu_manager.isFull()) {
-            std::cout << "\n[Main] Batch full at i=" << i << ". Executing GPU..." << std::endl;
-            // gpu math
-            gpu_manager.executeBatch();
-            std::cout << "[Main] GPU Finished. Starting Linking..." << std::endl;
+        // compute the exact size of this batch
+        int current_batch_size = std::min(batch_size, (int)(n - batch_start));
+        gpu_manager.setCurrentBatchCount(current_batch_size);
 
-            int batch_start_idx = i - batch_size + 1;
-
-
-            #pragma omp parallel for
-            for (int b = 0; b < batch_size; b++)
-            {
-                int vector_id = batch_start_idx + b;
-
-                // get the data from manager
-                std::vector<float> dists = gpu_manager.getResultsForQuery(b);
-                std::vector<int> ids = gpu_manager.getIdsForQuery(b);
-
-                // call linking
-                if (b % 2000 == 0) std::cout << "[Main] Linking element " << b << " of batch" << std::endl;
-                alg_hnsw->linkBatchElement(vector_id, ids, dists);
-            }
-            std::cout << "[Main] Batch link complete.\n" << std::endl;
-
-            if (i % 50000 == 0 || i == n - 1) {
-                std::cout << "Processed " << i << " / " << n << " vectors..." << std::endl;
-            }
-
+        if (batch_start % 50000 == 0) {
+            std::cout << "\nProcessed " << batch_start << " / " << n << " vectors..." << std::endl;
         }
+
+        // each cpu core should take a part of current_batch_size
+        // lock-free
+        #pragma omp parallel for
+        for (int local_i = 0; local_i < current_batch_size; local_i++) {
+            int vector_id = batch_start + local_i;
+
+            alg_hnsw->addPointHybridBatch(data.data() + vector_id * dim, vector_id, &gpu_manager, local_i);
+        }    
+        
+        std::cout << "[Main] Batch gathered. Executing GPU..." << std::endl;
+        gpu_manager.executeBatch();
+
+        // graph linking
+        // each cpu core sohuld link to the corresponding vector using the local_i mapping
+        #pragma omp parallel for
+        for (int local_i = 0; local_i < current_batch_size; local_i++)
+        {
+            int vector_id = batch_start + local_i;
+            std::vector<float> dists = gpu_manager.getResultsForQuery(local_i);
+            std::vector<int> ids = gpu_manager.getIdsForQuery(local_i);
+
+            alg_hnsw->linkBatchElement(vector_id, ids, dists);
+        }
+        
+        
+
     }
 
 

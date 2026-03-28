@@ -28,13 +28,9 @@ void HybridBatchManager::uploadDatasetMirror(const std::vector<float>& full_data
     cudaMemcpy(d_dataset_mirror, full_dataset.data(), full_dataset.size() * sizeof(float), cudaMemcpyHostToDevice);
 }
 
-void HybridBatchManager::queueQuery(const float* query_vector, const std::vector<int>& candidate_ids) {
-    if (isFull()) throw std::runtime_error("Batch is full rn");
-
-    std::memcpy(&h_query_batch[current_batch_count * dim], query_vector, dim * sizeof(float));
-    std::memcpy(&h_candidate_ids[current_batch_count * candidates_per_query], candidate_ids.data(), candidates_per_query * sizeof(int));
-
-    current_batch_count++;
+void HybridBatchManager::queueQuery(int local_index, const float* query_vector, const std::vector<int>& candidate_ids) {
+    std::memcpy(&h_query_batch[local_index * dim], query_vector, dim * sizeof(float));
+    std::memcpy(&h_candidate_ids[local_index * candidates_per_query], candidate_ids.data(), candidates_per_query * sizeof(int));
 }
 
 void HybridBatchManager::executeBatch() {

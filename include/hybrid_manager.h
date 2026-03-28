@@ -25,7 +25,7 @@ public:
     ~HybridBatchManager();
 
     void uploadDatasetMirror(const std::vector<float>& full_dataset);
-    void queueQuery(const float* query_vector, const std::vector<int>& candidate_ids);
+    void queueQuery(int local_index, const float* query_vector, const std::vector<int>& candidate_ids);
     void executeBatch();
 
     bool isEmpty() const { return current_batch_count == 0; }
@@ -33,5 +33,6 @@ public:
     std::vector<float> getResultsForQuery(int batch_index);
     std::vector<int> getIdsForQuery(int batch_index);
     int getCurrentBatchCount() const { return current_batch_count; }
+    void setCurrentBatchCount(int count) { current_batch_count = count; } 
 
 };
