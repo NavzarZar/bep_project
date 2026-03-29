@@ -1,0 +1,2 @@
+M,ef_construction,batch_size,candidates_per_query,beam_search_ef,build_time_sec,throughput_vec_sec,recall_1,recall_10
+16,100,1000,3000,1,65.8727,15180.8,0.9313,0.909849

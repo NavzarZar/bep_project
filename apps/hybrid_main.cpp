@@ -4,24 +4,38 @@
 #include "data_loader.h"
 #include <hybrid_manager.h>
 
-int main() {
-    size_t n, dim;
+int main(int argc, char** argv) {
+    size_t n = 0, dim = 0;
     std::string base_path = "data/sift_base.fvecs";
+
+    // Default parameters
+    int M = 16;
+    int ef_construction = 200;
+    int batch_size = 50000;
+    int candidates_per_query = 3000;
+    int beam_search_ef = 30;
+
+    if (argc >= 6) {
+        M = std::stoi(argv[1]);
+        ef_construction = std::stoi(argv[2]);
+        batch_size = std::stoi(argv[3]);
+        candidates_per_query = std::stoi(argv[4]);
+        beam_search_ef = std::stoi(argv[5]);
+    }
+
+    std::cout << "--- HYBRID PARAMS ---" << std::endl;
+    std::cout << "M: " << M << ", ef_con: " << ef_construction << ", batch: " << batch_size 
+              << ", cands: " << candidates_per_query << ", beam_ef: " << beam_search_ef << std::endl;
 
     std::cout << "Loading SIFT..." << std::endl;
     auto data = load_fvecs(base_path, n, dim);
 
-    std::cout << "Loaded " << n << " vectors of dimension " << dim << std::endl;
 
     if (n == 0) {
         std::cerr << "Error, loaded data is null. Check path" << std::endl;
         return 1;
     }
 
-    int M = 16;
-    int ef_construction = 200;
-    int batch_size = 50000;
-    int candidates_per_query = 3000;
 
     hnswlib::L2Space space(dim);
     hnswlib::HierarchicalNSW<float>* alg_hnsw = new hnswlib::HierarchicalNSW<float>(&space, n, M, ef_construction);
@@ -75,7 +89,7 @@ int main() {
         #pragma omp parallel for
         for (int local_i = 0; local_i < current_batch_size; local_i++) {
             int vector_id = gpu_batch_ids[local_i];
-            alg_hnsw->addPointHybridBatch(data.data() + vector_id * dim, vector_id, &gpu_manager, local_i);
+            alg_hnsw->addPointHybridBatch(data.data() + vector_id * dim, vector_id, &gpu_manager, local_i, beam_search_ef);
         }    
         
         std::cout << "[Main] Batch gathered. Executing GPU..." << std::endl;
@@ -106,7 +120,13 @@ int main() {
 
     // save the index, no need to rebuild for every test
     std::string index_path = "results/indices/";
-    alg_hnsw->saveIndex(index_path + "sift1m_hybrid_M" + std::to_string(M) + "_EF" + std::to_string(ef_construction) + ".bin");
+    std::string index_name = "sift1m_hybrid_M" + std::to_string(M) + 
+                             "_EF" + std::to_string(ef_construction) + 
+                             "_B" + std::to_string(batch_size) + 
+                             "_C" + std::to_string(candidates_per_query) + 
+                             "_BM" + std::to_string(beam_search_ef) + ".bin";
+
+    alg_hnsw->saveIndex(index_path + index_name);
     std::cout << "Index saved to " << index_path << std::endl;
 
     delete alg_hnsw;

@@ -1411,7 +1411,7 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
         std::cout << "integrity ok, checked " << connections_checked << " connections\n";
     }
 
-    void addPointHybridBatch(const void *datapoint, hnswlib::labeltype label, HybridBatchManager* gpu_manager, int local_index) {
+    void addPointHybridBatch(const void *datapoint, hnswlib::labeltype label, HybridBatchManager* gpu_manager, int local_index, int beam_ef) {
         tableint currObj = enterpoint_node_;
 
         // if the graph is completely empty, insert the first node normally
@@ -1484,7 +1484,7 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
         // cpu evaluates the distances with a certain factor that explores
         // to get out of local minima
         std::priority_queue<std::pair<dist_t, tableint>, std::vector<std::pair<dist_t, tableint>>, CompareByFirst> initial_candidates;
-        initial_candidates = searchBaseLayerST<true>(currObj, datapoint, 30);
+        initial_candidates = searchBaseLayerST<true>(currObj, datapoint, beam_ef);
         
         std::vector<int> candidate_pool;
         std::unordered_set<tableint> visited;
