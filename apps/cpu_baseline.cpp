@@ -6,7 +6,7 @@
 #include "hnswlib.h"
 #include "data_loader.h"
 
-int main() {
+int main(int argc, char** argv) {
     size_t n, dim;
     std::string base_path = "data/sift_base.fvecs";
 
@@ -14,10 +14,22 @@ int main() {
     auto data = load_fvecs(base_path, n, dim);
     std::cout << "Loaded " << n << " vectors." << std::endl;
 
-    hnswlib::L2Space space(dim);
-
     int M = 16;
     int ef_construction = 200;
+
+    if (argc >= 3) {
+        M = std::stoi(argv[1]);
+        ef_construction = std::stoi(argv[2]);
+    }
+
+    std::cout << "--- BASELINE PARAMS ---" << std::endl;
+    std::cout << "M: " << M << ", ef_con: " << ef_construction << std::endl;
+
+    std::cout << "Loading sift in memory...." << std::endl;
+    auto data = load_fvecs(base_path, n, dim);
+    std::cout << "Loaded " << n << " vectors." << std::endl;
+
+    hnswlib::L2Space space(dim);
 
     // Initialize the algo
     hnswlib::HierarchicalNSW<float>* alg_hnsw = new hnswlib::HierarchicalNSW<float>(
@@ -27,10 +39,11 @@ int main() {
         ef_construction
     );
 
-    std:: cout << "Starting Baseline CPU build....." << std::endl;
+    std:: cout << "Starting Parallel CPU build....." << std::endl;
     auto start = std::chrono::high_resolution_clock::now();
 
     // Add the points
+    #pragma omp parallel for
     for (int i = 0; i < n; i++)
     {
         alg_hnsw->addPoint(data.data() + i * dim, i);

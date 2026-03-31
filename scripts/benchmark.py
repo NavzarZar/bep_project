@@ -16,6 +16,9 @@ params = {
     'beam_search_ef': [1, 10, 30] 
 }
 
+NUM_RUNS = 3 # set the number of times to repeat each experiment
+SEED_SIZE = 200000
+
 # Generate all permutations
 keys, values = zip(*params.items())
 experiments = [dict(zip(keys, v)) for v in itertools.product(*values)]
@@ -42,62 +45,65 @@ with open(csv_filename, mode='w', newline='') as file:
         print(f"\n--- Running Experiment {idx+1}/{len(experiments)} ---")
         print(f"Params: {exp}")
 
-        index_name = f"sift1m_hybrid_M{exp['M']}_EF{exp['ef_construction']}_B{exp['batch_size']}_C{exp['candidates_per_query']}_BM{exp['beam_search_ef']}.bin"     
+        for run_id in range(1, NUM_RUNS + 1):
 
-        # Build the CLI command for hybrid_main
-        build_cmd = [
-            './build/hybrid_main', 
-            str(exp['M']), 
-            str(exp['ef_construction']), 
-            str(exp['batch_size']), 
-            str(exp['candidates_per_query']), 
-            str(exp['beam_search_ef'])
-        ]
+            index_name = f"sift1m_hybrid_M{exp['M']}_EF{exp['ef_construction']}_B{exp['batch_size']}_C{exp['candidates_per_query']}_BM{exp['beam_search_ef']}.bin"     
 
-        # run the build
-        print("  -> Building Graph...")
-        build_result = subprocess.run(build_cmd, capture_output=True, text=True, cwd=PROJECT_ROOT)
-        
-        build_time, throughput = "ERROR", "ERROR"
-        if build_result.returncode == 0:
-            match_time = regex_time.search(build_result.stdout)
-            match_throughput = regex_throughput.search(build_result.stdout)
-            if match_time: build_time = match_time.group(1)
-            if match_throughput: throughput = match_throughput.group(1)
-        else:
-            print(f"  [!] Build crashed with exit code {build_result.returncode}")
-            print("  --- C++ ERROR LOG ---")
-            print(build_result.stderr.strip() if build_result.stderr else "No STDERR output.")
-            print(build_result.stdout.strip())
-            print("  ---------------------")
-            continue
+            # Build the CLI command for hybrid_main
+            build_cmd = [
+                './build/hybrid_main', 
+                str(exp['M']), 
+                str(exp['ef_construction']), 
+                str(exp['batch_size']), 
+                str(exp['candidates_per_query']), 
+                str(exp['beam_search_ef']),
+                str(SEED_SIZE)
+            ]
 
-        # run the Evaluation Step
-        print("  -> Evaluating Recall...")
-        eval_cmd = ['./build/eval_recall', f"results/indices/{index_name}"]
-        eval_result = subprocess.run(eval_cmd, capture_output=True, text=True, cwd=PROJECT_ROOT)
+            # run the build
+            print("  -> Building Graph...")
+            build_result = subprocess.run(build_cmd, capture_output=True, text=True, cwd=PROJECT_ROOT)
+            
+            build_time, throughput = "ERROR", "ERROR"
+            if build_result.returncode == 0:
+                match_time = regex_time.search(build_result.stdout)
+                match_throughput = regex_throughput.search(build_result.stdout)
+                if match_time: build_time = match_time.group(1)
+                if match_throughput: throughput = match_throughput.group(1)
+            else:
+                print(f"  [!] Build crashed with exit code {build_result.returncode}")
+                print("  --- C++ ERROR LOG ---")
+                print(build_result.stderr.strip() if build_result.stderr else "No STDERR output.")
+                print(build_result.stdout.strip())
+                print("  ---------------------")
+                continue
 
-        recall_1, recall_10 = "ERROR", "ERROR"
-        if eval_result.returncode == 0:
-            match_r1 = regex_recall_1.search(eval_result.stdout)
-            match_r10 = regex_recall_10.search(eval_result.stdout)
-            if match_r1: recall_1 = match_r1.group(1)
-            if match_r10: recall_10 = match_r10.group(1)
+            # run the Evaluation Step
+            print("  -> Evaluating Recall...")
+            eval_cmd = ['./build/eval_recall', f"results/indices/{index_name}"]
+            eval_result = subprocess.run(eval_cmd, capture_output=True, text=True, cwd=PROJECT_ROOT)
 
-        print(f"  -> Results: Time={build_time}s | Tput={throughput} | R@10={recall_10}")
+            recall_1, recall_10 = "ERROR", "ERROR"
+            if eval_result.returncode == 0:
+                match_r1 = regex_recall_1.search(eval_result.stdout)
+                match_r10 = regex_recall_10.search(eval_result.stdout)
+                if match_r1: recall_1 = match_r1.group(1)
+                if match_r10: recall_10 = match_r10.group(1)
 
-        # delete the big binaries, resource exhaustion
-        index_file_path = os.path.join(PROJECT_ROOT, 'results', 'indices', index_name)
-        if os.path.exists(index_file_path):
-            os.remove(index_file_path)
-            print("Cleaned up index files")
+            print(f"  -> Results: Time={build_time}s | Tput={throughput} | R@10={recall_10}")
 
-        # save to csv 
-        writer.writerow([exp['M'], exp['ef_construction'], exp['batch_size'], 
-                         exp['candidates_per_query'], exp['beam_search_ef'], 
-                         build_time, throughput, recall_1, recall_10])
-        
-        file.flush()
+            # delete the big binaries, resource exhaustion
+            index_file_path = os.path.join(PROJECT_ROOT, 'results', 'indices', index_name)
+            if os.path.exists(index_file_path):
+                os.remove(index_file_path)
+                print("Cleaned up index files")
+
+            # save to csv 
+            writer.writerow([exp['M'], exp['ef_construction'], exp['batch_size'], 
+                            exp['candidates_per_query'], exp['beam_search_ef'], 
+                            build_time, throughput, recall_1, recall_10])
+            
+            file.flush()
 
 
 print(f"\nBenchmark suite complete! Data saved to {csv_filename}")

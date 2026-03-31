@@ -14,13 +14,15 @@ int main(int argc, char** argv) {
     int batch_size = 50000;
     int candidates_per_query = 3000;
     int beam_search_ef = 30;
+    int seed_size = 200000;
 
-    if (argc >= 6) {
+    if (argc >= 7) {
         M = std::stoi(argv[1]);
         ef_construction = std::stoi(argv[2]);
         batch_size = std::stoi(argv[3]);
         candidates_per_query = std::stoi(argv[4]);
         beam_search_ef = std::stoi(argv[5]);
+        seed_size = std::stoi(argv[6]);
     }
 
     std::cout << "--- HYBRID PARAMS ---" << std::endl;
@@ -45,7 +47,6 @@ int main(int argc, char** argv) {
     gpu_manager.uploadDatasetMirror(data);
 
     // build the first 10k on cpu to create a decent graph
-    int seed_size = 200000;
     std::cout << "Building seed graph (CPU)..." << std::endl;
     for (int i = 0; i < seed_size; i++) {
         alg_hnsw->addPoint(data.data() + i * dim, i);
