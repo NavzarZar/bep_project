@@ -1487,16 +1487,21 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
         initial_candidates = searchBaseLayerST<true>(currObj, datapoint, beam_ef);
         
         std::vector<int> candidate_pool;
-        std::unordered_set<tableint> visited;
         std::queue<tableint> q;
+
+
+        // get a pre allocated visited list from the thread pool
+        VisitedList *vl = visited_list_pool_->getFreeVisitedList();
+        vl_type *visited_array = vl->mass;
+        vl_type visited_array_def_mark = vl->curV;
 
         while (!initial_candidates.empty()) {
             tableint best_node = initial_candidates.top().second;
             initial_candidates.pop();
             
-            if (visited.find(best_node) == visited.end()) {
+            if (visited_array[best_node] != visited_array_def_mark) {
                 q.push(best_node);
-                visited.insert(best_node);
+                visited_array[best_node] = visited_array_def_mark;
                 candidate_pool.push_back(best_node);
             }
         }
@@ -1512,18 +1517,23 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
             for (int i = 1; i <= size; i++)
             {
                 tableint n = neighbors[i];
-                if (n >= 0 && n < max_elements_ && visited.find(n) == visited.end()) {
-                    visited.insert(n);
+                if (n >= 0 && n < max_elements_ && visited_array[n] != visited_array_def_mark) {
+                    visited_array[n] = visited_array_def_mark; // mark as visited
                     q.push(n);
-                    // Push directly to candidate pool to prevent over-gathering
+
+                    // Push to candidate pool to not have over-gathering
                     candidate_pool.push_back(n); 
                 }
             }
         }
 
+        // fill the rest with the enterpoint if we didn't the quota
         while (candidate_pool.size() < gpu_manager->candidates_per_query) {
             candidate_pool.push_back(currObj);
         }
+
+        // release the list back to the pool so other threads can use it
+        visited_list_pool_->releaseVisitedList(vl);
         
         // Queue the vector + candidate pool
         gpu_manager->queueQuery(local_index, (const float*)datapoint, candidate_pool);

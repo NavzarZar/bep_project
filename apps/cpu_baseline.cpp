@@ -25,10 +25,6 @@ int main(int argc, char** argv) {
     std::cout << "--- BASELINE PARAMS ---" << std::endl;
     std::cout << "M: " << M << ", ef_con: " << ef_construction << std::endl;
 
-    std::cout << "Loading sift in memory...." << std::endl;
-    auto data = load_fvecs(base_path, n, dim);
-    std::cout << "Loaded " << n << " vectors." << std::endl;
-
     hnswlib::L2Space space(dim);
 
     // Initialize the algo

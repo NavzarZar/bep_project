@@ -15,5 +15,5 @@ echo "=========================================="
 
 ./build/hybrid_main $M $EF_CON $BATCH $CANDS $BEAM
 
-INDEX_NAME="results/indices/sift1m_hybrid_M${M}_EF${EF_CON}.bin"
+INDEX_NAME="results/indices/sift1m_hybrid_M${M}_EF${EF_CON}_B${BATCH}_C${CANDS}_BM${BEAM}.bin"
 ./build/eval_recall $INDEX_NAME
