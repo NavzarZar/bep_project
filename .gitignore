@@ -63,3 +63,7 @@ venv/
 __pycache__/
 *.pyc
 .ipynb_checkpoints/
+
+# Nvidia nsys
+*.nsys-rep
+*.qdstrm
