@@ -1590,8 +1590,6 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
     }
 
     void preRegisterHybridNode(labeltype label, const void *datapoint) {
-        std::unique_lock<std::mutex> lock_table(label_lookup_lock);
-
         element_levels_[label] = 0;
 
         // clean the memory block

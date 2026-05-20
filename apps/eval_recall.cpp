@@ -5,12 +5,14 @@
 #include "data_loader.h"
 
 int main(int argc, char** argv) {
-    if (argc < 2) {
-        std::cout << "Usage: ./eval_recall <path_to_index.bin>" << std::endl;
+    if (argc < 4) {
+        std::cout << "Usage: ./eval_recall <path_to_index.bin> <path_to_query.fvecs> <path_to_groundtruth.ivecs>" << std::endl;
         return 1;
     }
 
     std::string index_path = argv[1];
+    std::string query_path = argv[2];
+    std::string gt_path = argv[3];
     size_t n_q, dim, n_gt, k_gt;
 
     std::cout << "Loading queries and ground truth..." << std::endl;

@@ -10,7 +10,7 @@ int main(int argc, char** argv) {
     nvtxRangePushA("Setup: Load data & initialize gpu");
 
     size_t n = 0, dim = 0;
-    std::string base_path = "data/sift_base.fvecs";
+    std::string base_path = "data/synthetic_768d_base.fvecs";
 
     // Default parameters
     int M = 16;
@@ -18,15 +18,16 @@ int main(int argc, char** argv) {
     int batch_size = 50000;
     int candidates_per_query = 3000;
     int beam_search_ef = 30;
-    int seed_size = 200000;
+    int seed_size = 0;
 
-    if (argc >= 7) {
+    if (argc >= 8) {
         M = std::stoi(argv[1]);
         ef_construction = std::stoi(argv[2]);
         batch_size = std::stoi(argv[3]);
         candidates_per_query = std::stoi(argv[4]);
         beam_search_ef = std::stoi(argv[5]);
         seed_size = std::stoi(argv[6]);
+        base_path = argv[7];
     }
 
     std::cout << "--- HYBRID PARAMS ---" << std::endl;

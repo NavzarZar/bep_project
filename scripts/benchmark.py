@@ -9,15 +9,16 @@ PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 
 # Define parameters
 params = {
-    'M': [16], 
+    'dataset': ['data/sift_base.fvecs', 'data/synthetic_768d_base.fvecs'], 
+    'M': [8, 16, 32], 
     'ef_construction': [100, 200, 400],
     'batch_size': [1000, 10000, 50000],
-    'candidates_per_query': [3000],
-    'beam_search_ef': [1, 10, 30] 
+    'candidates_per_query': [1000, 3000,  5000],
+    'beam_search_ef': [1, 10, 30],
+    'seed_size': [0, 100, 200000]
 }
 
-NUM_RUNS = 3 # set the number of times to repeat each experiment
-SEED_SIZE = 200000
+NUM_RUNS = 1
 
 # Generate all permutations
 keys, values = zip(*params.items())
@@ -26,8 +27,8 @@ experiments = [dict(zip(keys, v)) for v in itertools.product(*values)]
 csv_filename = 'results/hybrid_benchmark_results.csv'
 
 # regex that should extract it from the c++ output
-regex_time = re.compile(r"Baseline build time:\s+([0-9.]+)s")
-regex_throughput = re.compile(r"Baseline Throughput:\s+([0-9.]+)\s+vectors/sec")
+regex_time = re.compile(r"Hybrid build time:\s+([0-9.]+)s")
+regex_throughput = re.compile(r"Hybrid Throughput:\s+([0-9.]+)\s+vectors/sec")
 regex_recall_1 = re.compile(r"Recall@1:\s+([0-9.]+)")
 regex_recall_10 = re.compile(r"Recall@10:\s+([0-9.]+)")
 
@@ -38,8 +39,8 @@ os.makedirs('results', exist_ok=True)
 with open(csv_filename, mode='w', newline='') as file:
     writer = csv.writer(file)
     # Write header
-    writer.writerow(['M', 'ef_construction', 'batch_size', 'candidates_per_query', 
-                     'beam_search_ef', 'build_time_sec', 'throughput_vec_sec', 'recall_1', 'recall_10'])
+    writer.writerow(['dataset', 'M', 'ef_construction', 'batch_size', 'candidates_per_query', 
+                     'beam_search_ef', 'seed_size', 'build_time_sec', 'throughput_vec_sec', 'recall_1', 'recall_10'])
 
     for idx, exp in enumerate(experiments):
         print(f"\n--- Running Experiment {idx+1}/{len(experiments)} ---")
@@ -57,7 +58,8 @@ with open(csv_filename, mode='w', newline='') as file:
                 str(exp['batch_size']), 
                 str(exp['candidates_per_query']), 
                 str(exp['beam_search_ef']),
-                str(SEED_SIZE)
+                str(exp['seed_size']),
+                exp['dataset']
             ]
 
             # run the build
