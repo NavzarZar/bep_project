@@ -137,18 +137,10 @@ int main(int argc, char** argv) {
     std::chrono::duration<double> diff = end_time - start_time;
     std::cout << "Hybrid build time: " << diff.count() << "s" << std::endl;
     std::cout << "Hybrid Throughput: " << n / diff.count() << " vectors/sec" << std::endl;
-    
 
-    // save the index, no need to rebuild for every test
-    std::string index_path = "results/indices/";
-    std::string index_name = "sift1m_hybrid_M" + std::to_string(M) + 
-                             "_EF" + std::to_string(ef_construction) + 
-                             "_B" + std::to_string(batch_size) + 
-                             "_C" + std::to_string(candidates_per_query) + 
-                             "_BM" + std::to_string(beam_search_ef) + ".bin";
 
-    alg_hnsw->saveIndex(index_path + index_name);
-    std::cout << "Index saved to " << index_path << std::endl;
+    alg_hnsw->saveIndex("results/indices/temp_hybrid_index.bin");
+    std::cout << "Index saved to " << "results/indices/temp_hybrid_index.bin" << std::endl;
     nvtxRangePop();
 
 

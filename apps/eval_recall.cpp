@@ -16,8 +16,8 @@ int main(int argc, char** argv) {
     size_t n_q, dim, n_gt, k_gt;
 
     std::cout << "Loading queries and ground truth..." << std::endl;
-    auto queries = load_fvecs("data/sift_query.fvecs", n_q, dim);
-    auto gt = load_ivecs("data/sift_groundtruth.ivecs", n_gt, k_gt);
+    auto queries = load_fvecs(query_path, n_q, dim);
+    auto gt = load_ivecs(gt_path, n_gt, k_gt);
 
     hnswlib::L2Space space(dim);
     std::cout << "Loading Index: " << index_path << std::endl;

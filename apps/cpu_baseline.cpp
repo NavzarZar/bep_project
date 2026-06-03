@@ -66,6 +66,9 @@ int main(int argc, char** argv) {
     alg_hnsw->saveIndex(index_name);
     std::cout << "Index saved to " << index_name << std::endl;
 
+    std::cout << "\n--- BASELINE TOPOLOGY ---" << std::endl;
+    alg_hnsw->diagnosticAnalyzeTopology(0, n);
+
     // cleaning
     delete alg_hnsw;
     return 0;

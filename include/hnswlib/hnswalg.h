@@ -1557,36 +1557,74 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
     }
 
     void diagnosticAnalyzeTopology(int seed_size, int total_nodes) {
-        std::cout << "\n--- TOPOLOGY X-RAY DIAGNOSTIC ---" << std::endl;
-        long long hybrid_to_hybrid_links = 0;
-        long long hybrid_to_seed_links = 0;
-        int isolated_hybrid_nodes = 0;
+        std::cout << "\n=== FORMAL TOPOLOGY ANALYSIS (For Thesis Table) ===" << std::endl;
 
-        for (int i = seed_size; i < total_nodes; i++) {
-            // Layer 0 data is always stored here, even if linkLists_ is null
+        long long total_out_degree = 0;
+        std::vector<int> in_degrees(total_nodes, 0);
+        int isolated_nodes = 0; // 0 out-degree
+        int max_out_degree = 0;
+
+        // 1. Calculate Out-Degrees and populate In-Degrees
+        for (int i = 0; i < total_nodes; i++) {
             tableint* data = (tableint*)(data_level0_memory_ + i * size_data_per_element_);
             int size = *data;
+            total_out_degree += size;
 
-            if (size == 0) {
-                isolated_hybrid_nodes++;
-                continue;
-            }
+            if (size == 0) isolated_nodes++;
+            if (size > max_out_degree) max_out_degree = size;
 
             for (int j = 1; j <= size; j++) {
                 tableint neighbor_id = data[j];
-                
-                if (neighbor_id < seed_size) {
-                    hybrid_to_seed_links++;
-                } else {
-                    hybrid_to_hybrid_links++;
+                // Safety check
+                if (neighbor_id >= 0 && neighbor_id < total_nodes) {
+                    in_degrees[neighbor_id]++;
                 }
             }
         }
 
-        std::cout << "Hybrid-to-Seed Links:   " << hybrid_to_seed_links << std::endl;
-        std::cout << "Hybrid-to-Hybrid Links: " << hybrid_to_hybrid_links << std::endl;
-        std::cout << "Completely Isolated Nodes: " << isolated_hybrid_nodes << std::endl;
-        std::cout << "---------------------------------\n" << std::endl;
+        // 2. Analyze In-Degree Distribution (Starvation & Hubs)
+        int starved_nodes = 0;
+        int max_in_degree = 0;
+        for (int i = 0; i < total_nodes; i++) {
+            if (in_degrees[i] == 0) starved_nodes++;
+            if (in_degrees[i] > max_in_degree) max_in_degree = in_degrees[i];
+        }
+
+        // 3. Reachability Test (BFS from the Graph Entry Point)
+        int reachable_count = 0;
+        if (enterpoint_node_ != -1) {
+            std::vector<bool> visited(total_nodes, false);
+            std::queue<int> q;
+            
+            q.push(enterpoint_node_);
+            visited[enterpoint_node_] = true;
+            reachable_count++;
+
+            while (!q.empty()) {
+                int curr = q.front();
+                q.pop();
+
+                tableint* data = (tableint*)(data_level0_memory_ + curr * size_data_per_element_);
+                int size = *data;
+                for (int j = 1; j <= size; j++) {
+                    tableint neighbor_id = data[j];
+                    if (neighbor_id >= 0 && neighbor_id < total_nodes && !visited[neighbor_id]) {
+                        visited[neighbor_id] = true;
+                        q.push(neighbor_id);
+                        reachable_count++;
+                    }
+                }
+            }
+        }
+
+        double avg_out = (double)total_out_degree / total_nodes;
+        double reachability_pct = ((double)reachable_count / total_nodes) * 100.0;
+
+        std::cout << "1. Graph Density (Avg Out-Degree): " << avg_out << " (Target: " << M_ << ")" << std::endl;
+        std::cout << "2. Starved Nodes:    " << starved_nodes << " (" << ((double)starved_nodes/total_nodes)*100 << "%)" << std::endl;
+        std::cout << "3. Max In-Degree:     " << max_in_degree << std::endl;
+        std::cout << "4. Global Reachability:            " << reachable_count << " / " << total_nodes << " (" << reachability_pct << "%)" << std::endl;
+        std::cout << "===================================================\n" << std::endl;
     }
 
     void preRegisterHybridNode(labeltype label, const void *datapoint) {
