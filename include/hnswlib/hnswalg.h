@@ -1557,14 +1557,11 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
     }
 
     void diagnosticAnalyzeTopology(int seed_size, int total_nodes) {
-        std::cout << "\n=== FORMAL TOPOLOGY ANALYSIS (For Thesis Table) ===" << std::endl;
-
         long long total_out_degree = 0;
         std::vector<int> in_degrees(total_nodes, 0);
         int isolated_nodes = 0; // 0 out-degree
         int max_out_degree = 0;
 
-        // 1. Calculate Out-Degrees and populate In-Degrees
         for (int i = 0; i < total_nodes; i++) {
             tableint* data = (tableint*)(data_level0_memory_ + i * size_data_per_element_);
             int size = *data;
@@ -1582,7 +1579,7 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
             }
         }
 
-        // 2. Analyze In-Degree Distribution (Starvation & Hubs)
+        // In-Degree Distribution
         int starved_nodes = 0;
         int max_in_degree = 0;
         for (int i = 0; i < total_nodes; i++) {
@@ -1590,7 +1587,7 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
             if (in_degrees[i] > max_in_degree) max_in_degree = in_degrees[i];
         }
 
-        // 3. Reachability Test (BFS from the Graph Entry Point)
+        // Reachability Test 
         int reachable_count = 0;
         if (enterpoint_node_ != -1) {
             std::vector<bool> visited(total_nodes, false);
@@ -1620,10 +1617,10 @@ class HierarchicalNSW : public AlgorithmInterface<dist_t> {
         double avg_out = (double)total_out_degree / total_nodes;
         double reachability_pct = ((double)reachable_count / total_nodes) * 100.0;
 
-        std::cout << "1. Graph Density (Avg Out-Degree): " << avg_out << " (Target: " << M_ << ")" << std::endl;
-        std::cout << "2. Starved Nodes:    " << starved_nodes << " (" << ((double)starved_nodes/total_nodes)*100 << "%)" << std::endl;
-        std::cout << "3. Max In-Degree:     " << max_in_degree << std::endl;
-        std::cout << "4. Global Reachability:            " << reachable_count << " / " << total_nodes << " (" << reachability_pct << "%)" << std::endl;
+        std::cout << "Graph Density (Avg Out-Degree): " << avg_out << " (Target: " << M_ << ")" << std::endl;
+        std::cout << "Starved Nodes:    " << starved_nodes << " (" << ((double)starved_nodes/total_nodes)*100 << "%)" << std::endl;
+        std::cout << "Max In-Degree:     " << max_in_degree << std::endl;
+        std::cout << "Global Reachability:            " << reachable_count << " / " << total_nodes << " (" << reachability_pct << "%)" << std::endl;
         std::cout << "===================================================\n" << std::endl;
     }
 

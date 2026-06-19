@@ -34,7 +34,7 @@ int main(int argc, char** argv) {
     std::cout << "M: " << M << ", ef_con: " << ef_construction << ", batch: " << batch_size 
               << ", cands: " << candidates_per_query << ", beam_ef: " << beam_search_ef << std::endl;
 
-    std::cout << "Loading SIFT..." << std::endl;
+    std::cout << "Loading dataset..." << std::endl;
     auto data = load_fvecs(base_path, n, dim);
 
 
@@ -57,7 +57,7 @@ int main(int argc, char** argv) {
 
     nvtxRangePushA("CPU: Build Seed Graph");
     // build the first 10k on cpu to create a decent graph
-    std::cout << "Building seed graph (CPU)..." << std::endl;
+    std::cout << "Building seed graph (CPU) ..." << std::endl;
     for (int i = 0; i < seed_size; i++) {
         alg_hnsw->addPoint(data.data() + i * dim, i);
     }
@@ -108,24 +108,56 @@ int main(int argc, char** argv) {
         }    
         nvtxRangePop();
 
-        nvtxRangePushA("GPU: Compute distances");
-        std::cout << "[Main] Batch gathered. Executing GPU..." << std::endl;
-        gpu_manager.executeBatch();
-        nvtxRangePop();
+        bool force_cpu_math = false;
 
-        nvtxRangePushA("CPU: Graph linking");
-        // graph linking
-        // each cpu core sohuld link to the corresponding vector using the local_i mapping
-        #pragma omp parallel for
-        for (int local_i = 0; local_i < current_batch_size; local_i++)
-        {
-            int vector_id = gpu_batch_ids[local_i];
-            std::vector<float> dists = gpu_manager.getResultsForQuery(local_i);
-            std::vector<int> ids = gpu_manager.getIdsForQuery(local_i);
+        if (!force_cpu_math) {
+            nvtxRangePushA("GPU: Compute distances");
+            std::cout << "[Main] Batch gathered. Executing GPU..." << std::endl;
+            gpu_manager.executeBatch();
+            nvtxRangePop();
 
-            alg_hnsw->linkBatchElement(vector_id, ids, dists);
+            nvtxRangePushA("CPU: Graph linking");
+            // graph linking
+            // each cpu core sohuld link to the corresponding vector using the local_i mapping
+            #pragma omp parallel for
+            for (int local_i = 0; local_i < current_batch_size; local_i++)
+            {
+                int vector_id = gpu_batch_ids[local_i];
+                std::vector<float> dists = gpu_manager.getResultsForQuery(local_i);
+                std::vector<int> ids = gpu_manager.getIdsForQuery(local_i);
+
+                alg_hnsw->linkBatchElement(vector_id, ids, dists);
+            }
+            nvtxRangePop();
+        } else {
+            nvtxRangePushA("CPU: Compute distances AND Graph linking");
+            std::cout << "[Main] Batch gathered. Executing PURE CPU MATH..." << std::endl;
+            
+            #pragma omp parallel for
+            for (int local_i = 0; local_i < current_batch_size; local_i++)
+            {
+                int vector_id = gpu_batch_ids[local_i];
+                std::vector<int> ids = gpu_manager.getIdsForQuery(local_i);
+                std::vector<float> dists(ids.size());
+
+                // Pointer to the query vector
+                const void* query_vec = data.data() + vector_id * dim;
+
+                // FORCE THE CPU TO CALCULATE DISTANCES
+                for (size_t c = 0; c < ids.size(); c++) {
+                    if (ids[c] >= 0 && ids[c] < n) {
+                        const void* cand_vec = data.data() + ids[c] * dim;
+                        dists[c] = alg_hnsw->fstdistfunc_(query_vec, cand_vec, alg_hnsw->dist_func_param_);
+                    } else {
+                        dists[c] = 9999999.0f; // invalid distance placeholder
+                    }
+                }
+
+                alg_hnsw->linkBatchElement(vector_id, ids, dists);
+            }
+            nvtxRangePop();
         }
-        nvtxRangePop();
+
     }
 
 
